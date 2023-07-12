@@ -7,7 +7,7 @@ base_url = "https://arxiv.org"
 categories = {}
 
 
-@info_print
+@info_print("Fetching categories")
 def get_categories():
     # Fetch html of base arxiv url
     response = requests.get(base_url)
@@ -31,7 +31,7 @@ def get_categories():
     return categories
 
 
-@info_print
+@info_print("Fetching recents")
 def get_recent(category, num=5):
     # Fetch html of recent site for category
     response = requests.get(base_url + categories[category.lower()] + "/recent")
@@ -50,7 +50,7 @@ def get_recent(category, num=5):
             title = title.replace(old, new)
         all_submissions.append({"title": title})
 
-    return all_submissions
+    return all_submissions[:5]  # TEMP FIX
 
 
 if __name__ == "__main__":

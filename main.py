@@ -3,63 +3,71 @@ import discord
 import dotenv
 import scraper
 import random
-
-
-class ArxivBot(discord.Client):
-    def __init__(self, **kwargs):
-        # Set the data that gets sent to the bot (i think)
-        kwargs.setdefault('intents', discord.Intents.default())
-        kwargs['intents'].message_content = True
-        super().__init__(**kwargs)
-
-        # Fetch categories
-        scraper.get_categories()
-
-    async def on_ready(self):
-        print(f'Logged on as {self.user}!')
-
-    async def on_message(self, message):
-        # Prevent own message from triggering event and only react to mentions
-        if message.author == self.user or self.user not in message.mentions:
-            return
-
-        print(f'Message from {message.author}: {message.content}')
-
-        # Clean message: Remove bot mention and leading/trailing whitespaces
-        prompt = message.content.replace(self.user.mention, "").strip().lower()
-
-        # CASE: Send Categories
-        if prompt in ["categories", "category", "cat", "cats"]:
-            try:
-                categories = scraper.get_categories()
-                await message.channel.send(str(categories))
-                return
-            except Exception as e:
-                print(e)
-                await message.channel.send("Gar kein bock")
-                return
-
-        # CASE: Get recents
-        if "test" in prompt:
-            selected_category = prompt.replace("test", "").strip()
-            try:
-                recents = scraper.get_recent(selected_category)
-
-                await message.channel.send(str(recents)[:2000])
-                return
-
-            except Exception as e:
-                print(e)
-                await message.channel.send(f"Unknown category \"{selected_category}\"")
-                return
-
-        await message.channel.send(random.choice(["was", "The FitnessGram Pacer Test is a multistage aerobic capacity test that progressively gets more difficult as it continues. The 20 meter pacer test will begin in 30 seconds. Line up at the start. The running speed starts slowly, but gets faster each minute after you hear this signal. [beep] A single lap should be completed each time you hear this sound. [ding] Remember to run in a straight line, and run as long as possible. The second time you fail to complete a lap before the sound, your test is over. The test will begin on the word start. On your mark, get ready, start."]))
-
+from discord.ext import commands
+from discord import app_commands
 
 if __name__ == "__main__":
+    # Define intents. Set the data that gets sent to the bot (i think)
+    intents = discord.Intents.default()
+    intents.message_content = True
+
+    # Define bot
+    arxiv_bot = commands.Bot(command_prefix="/", intents=intents)
+    coms = ["categories", "recents"]
+
+    # Fetch categories
+    scraper.get_categories()
+
+    @arxiv_bot.event
+    async def on_ready():
+        print(f'Logged on as {arxiv_bot.user}!')
+
+    """
+    @arxiv_bot.event
+    async def on_message(message):
+        # Prevent own message from triggering event and only react to mentions
+        if message.author == arxiv_bot.user or arxiv_bot.user not in message.mentions:
+            return
+
+        out = "\n".join([arxiv_bot.command_prefix + com for com in coms])
+        await message.channel.send(out)
+    """
+
+    @arxiv_bot.command()
+    async def categories(ctx):
+        try:
+            cats = scraper.get_categories()
+            cats = " :nerd: ".join(["`" + cat + "`" for cat in cats])
+            await ctx.send(str(cats))
+            return
+
+        except Exception as e:
+            print("Failed to get categories. Exception:", e)
+            await ctx.send("Gar kein bock")
+            return
+
+
+    @arxiv_bot.command()
+    async def recents(ctx, *args):
+        arg = " ".join(args)
+
+        try:
+            recent_submissions = scraper.get_recent(arg)
+            # TEMP TEMP TEMP
+            recent_submissions = "\nAuthor usw...\n\n".join(["**" + sub["title"] + "**" for sub in recent_submissions])
+
+            await ctx.send(str(recent_submissions))
+            await ctx.message.add_reaction('\N{NERD FACE}')
+            return
+
+        except Exception as e:
+            print("Failed to get recents. Exception:", e)
+            await ctx.send(f"Unknown category \"{arg}\"")
+            return
+
+
     # Load the environment variables
     dotenv.load_dotenv()
     token = os.getenv('DISCORD_TOKEN')
 
-    client = ArxivBot()
-    client.run(token)
+    arxiv_bot.run(token)
