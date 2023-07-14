@@ -39,23 +39,62 @@ def get_recent(category, num=5):
 
     # get dive of recent submissions
     paper_div = soup.find("dl")
-    submissions = paper_div.find_all("dd")
+
+    submissions_links = paper_div.find_all("dt")
+    submissions_content = paper_div.find_all("dd")
     title_replacements = [["Title: ", ""], ["\n", ""], ["  ", " "]]  # Clean text by removing double spaces, new lines
     all_submissions = []
 
-    # for every submission do...TODO
-    for submission in submissions:
-        title = submission.find("div", class_="list-title mathjax").text
-        for old, new in title_replacements:
-            title = title.replace(old, new)
-        all_submissions.append({"title": title})
+    # Fetch infos for every submission
+    for i, submission in enumerate(submissions_content):
+        sub_dict = {}
 
-    return all_submissions[:5]  # TEMP FIX
+        # Get Title
+        try:
+            title = submission.find("div", class_="list-title mathjax").text
+            for old, new in title_replacements:
+                title = title.replace(old, new)
+            sub_dict["title"] = title
+        except:
+            print("[Error] Could not get title of paper")
+            continue  # Dont add paper when title cant be fetched
+
+        # Get Authors
+        try:
+            authors_div = submission.find("div", class_="list-authors")
+            authors_names = [link.text for link in authors_div.find_all("a")]
+            authors_links = [base_url + link.get("href") for link in authors_div.find_all("a")]
+            sub_dict["author_names"] = authors_names
+            sub_dict["author_links"] = authors_links
+        except:
+            print("[Error] Could not get title of paper")
+            continue  # Dont add paper when authors cant be fetched
+
+        # Get Links
+        try:
+            paper_link = submissions_links[i].find("a", title="Abstract").get("href")
+            sub_dict["paper_link"] = base_url + paper_link
+        except:
+            print("[Error] Could not get arxiv link of paper")
+        try:
+            pdf_link = submissions_links[i].find("a", title="Download PDF").get("href")
+            sub_dict["pdf_link"] = base_url + pdf_link
+        except:
+            print("[Error] Could not get pdf link of paper")
+
+        # Add fetched info to return list
+        all_submissions.append(sub_dict)
+
+        # Break loop if desired number of papers has been reached
+        if len(all_submissions) >= num:
+            break
+
+    return all_submissions
 
 
 if __name__ == "__main__":
     cats = get_categories()
     print(cats)
 
-    recents = get_recent('astrophysics')
+    recents = get_recent('astrophysics', num=5)
     print(recents)

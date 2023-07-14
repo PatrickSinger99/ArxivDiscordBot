@@ -4,7 +4,6 @@ import dotenv
 import scraper
 import random
 from discord.ext import commands
-from discord import app_commands
 
 if __name__ == "__main__":
     # Define intents. Set the data that gets sent to the bot (i think)
@@ -20,7 +19,7 @@ if __name__ == "__main__":
 
     @arxiv_bot.event
     async def on_ready():
-        print(f'Logged on as {arxiv_bot.user}!')
+        print(f'Logged in as {arxiv_bot.user}')
 
     """
     @arxiv_bot.event
@@ -37,7 +36,7 @@ if __name__ == "__main__":
     async def categories(ctx):
         try:
             cats = scraper.get_categories()
-            cats = " :nerd: ".join(["`" + cat + "`" for cat in cats])
+            cats = " | ".join(["`" + cat + "`" for cat in cats])
             await ctx.send(str(cats))
             return
 
@@ -48,21 +47,40 @@ if __name__ == "__main__":
 
 
     @arxiv_bot.command()
-    async def recents(ctx, *args):
+    async def recents(ctx, *args, num_of_submissions=5,  max_authors=4):
         arg = " ".join(args)
 
         try:
-            recent_submissions = scraper.get_recent(arg)
-            # TEMP TEMP TEMP
-            recent_submissions = "\nAuthor usw...\n\n".join(["**" + sub["title"] + "**" for sub in recent_submissions])
+            recent_submissions = scraper.get_recent(arg, num=num_of_submissions)
+            sub_text_blocks = []
 
-            await ctx.send(str(recent_submissions))
+            for sub in recent_submissions:
+                text_block = ":page_facing_up: **" + sub["title"] + "**\n"
+                text_block += " ".join([f"[`{author}`]({sub['author_links'][i]})" for i, author in enumerate(sub["author_names"][:max_authors])])
+                if len(sub["author_names"]) > max_authors:
+                    text_block += f" + {len(sub['author_names'])-max_authors} more"
+
+                try:
+                    text_block += f"\n [Arxiv Link]({sub['paper_link']}) | [PDF Link]({sub['pdf_link']})"
+                except:
+                    pass
+
+                sub_text_blocks.append(text_block)
+
+            final_text = "\n\n".join(sub_text_blocks)
+
+            # Use embedding message to enable links
+            embedded_msg = discord.Embed()
+            embedded_msg.description = final_text
+            embedded_msg.title = f"Recent Submissions in {arg}"
+
+            await ctx.send(embed=embedded_msg)
             await ctx.message.add_reaction('\N{NERD FACE}')
             return
 
         except Exception as e:
             print("Failed to get recents. Exception:", e)
-            await ctx.send(f"Unknown category \"{arg}\"")
+            await ctx.send(f"Failed to fetch submissions for category \"{arg}\"")
             return
 
 
